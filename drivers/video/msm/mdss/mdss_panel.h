@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,6 +238,10 @@ struct lcd_panel_info {
 	u32 border_clr;
 	u32 underflow_clr;
 	u32 hsync_skew;
+	u32 border_top;
+	u32 border_bottom;
+	u32 border_left;
+	u32 border_right;
 	/* Pad width */
 	u32 xres_pad;
 	/* Pad height */
@@ -377,6 +381,8 @@ struct mdss_mdp_pp_tear_check {
 	u32 refx100;
 };
 
+struct mdss_livedisplay_ctx;
+
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
@@ -427,6 +433,7 @@ struct mdss_panel_info {
 	u32 min_height;
 	u32 min_fps;
 	u32 max_fps;
+	u32 idle_fps;
 
 	u32 cont_splash_enabled;
 	bool esd_rdy;
@@ -457,6 +464,7 @@ struct mdss_panel_info {
 
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
+        struct mdss_livedisplay_ctx *livedisplay;
 #if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	int panel_state;
 #endif
@@ -481,6 +489,7 @@ struct mipi_samsung_driver_data {
 	struct lcd_device *lcd_device;
 	void *mdss_panel_data;
 	void *mdss_dsi_ctrl_pdata;
+	struct mdss_livedisplay_ctx *livedisplay;
 };
 
 struct mdss_panel_data {
@@ -585,7 +594,9 @@ static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
 {
 	return pinfo->yres + pinfo->lcdc.v_back_porch +
 			pinfo->lcdc.v_front_porch +
-			pinfo->lcdc.v_pulse_width;
+			pinfo->lcdc.v_pulse_width+
+			pinfo->lcdc.border_top +
+			pinfo->lcdc.border_bottom;
 }
 
 /*
@@ -601,10 +612,11 @@ static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
 static inline int mdss_panel_get_htotal(struct mdss_panel_info *pinfo, bool
 		consider_fbc)
 {
-	int adj_xres = pinfo->xres;
+	int adj_xres = pinfo->xres + pinfo->lcdc.border_left +
+				pinfo->lcdc.border_right;
 
 	if (consider_fbc && pinfo->fbc.enabled)
-		adj_xres = mult_frac(pinfo->xres,
+		adj_xres = mult_frac(adj_xres,
 				pinfo->fbc.target_bpp, pinfo->bpp);
 
 	return adj_xres + pinfo->lcdc.h_back_porch +
